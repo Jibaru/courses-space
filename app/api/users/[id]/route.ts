@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAuth } from "@/lib/auth-middleware"
+import { requireAdmin } from "@/lib/auth-middleware"
 import { getRepositories } from "@/lib/repositories"
 
-// GET /api/users/[id] - Get user by ID
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(request)
+    requireAdmin(request)
     const { id } = await params
     const repos = await getRepositories()
     const user = await repos.users.findById(id)
@@ -17,24 +16,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({
       id: user.id,
       email: user.email,
+      role: user.role,
       createdAt: user.createdAt,
     })
   } catch (error: any) {
     if (error.message?.includes("Unauthorized")) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
+    if (error.message?.includes("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
+    }
     console.error("Get user error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// PUT /api/users/[id] - Update user
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(request)
+    requireAdmin(request)
     const { id } = await params
     const body = await request.json()
-    const { email, password } = body
+    const { email, password, role } = body
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
@@ -44,8 +46,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
+    if (role && role !== "student" && role !== "admin") {
+      return NextResponse.json({ error: "Role must be 'student' or 'admin'" }, { status: 400 })
+    }
+
     const repos = await getRepositories()
-    const updatedUser = await repos.users.update(id, email, password)
+    const updatedUser = await repos.users.update(id, email, password, role)
 
     if (!updatedUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -54,21 +60,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({
       id: updatedUser.id,
       email: updatedUser.email,
+      role: updatedUser.role,
       createdAt: updatedUser.createdAt,
     })
   } catch (error: any) {
     if (error.message?.includes("Unauthorized")) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
+    if (error.message?.includes("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
+    }
     console.error("Update user error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// DELETE /api/users/[id] - Delete user
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    requireAuth(request)
+    requireAdmin(request)
     const { id } = await params
     const repos = await getRepositories()
 
@@ -78,6 +87,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   } catch (error: any) {
     if (error.message?.includes("Unauthorized")) {
       return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    if (error.message?.includes("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
     }
     console.error("Delete user error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

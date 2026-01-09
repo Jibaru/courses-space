@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       id: user.id,
       email: user.email,
+      role: user.role,
     })
   } catch (error: any) {
     if (error.message?.includes("Unauthorized")) {

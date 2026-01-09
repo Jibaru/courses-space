@@ -6,6 +6,7 @@ const JWT_EXPIRES_IN = "24h"
 export interface JWTPayload {
   userId: string
   email: string
+  role: "student" | "admin"
 }
 
 export function generateToken(payload: JWTPayload): string {

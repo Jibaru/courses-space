@@ -6,6 +6,7 @@ import { api, setAuthToken, clearAuthToken, getAuthToken } from "./api"
 interface User {
   id: string
   email: string
+  role: "student" | "admin"
 }
 
 interface AuthContextType {

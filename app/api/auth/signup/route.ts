@@ -23,14 +23,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already exists" }, { status: 409 })
     }
 
-    const newUser = await repos.users.create(email, password)
-    const token = generateToken({ userId: newUser.id, email: newUser.email })
+    const newUser = await repos.users.create(email, password, "student")
+    const token = generateToken({ userId: newUser.id, email: newUser.email, role: newUser.role })
 
     return NextResponse.json({
       token,
       user: {
         id: newUser.id,
         email: newUser.email,
+        role: newUser.role,
       },
     })
   } catch (error) {

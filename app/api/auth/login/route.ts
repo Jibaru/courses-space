@@ -18,13 +18,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
-    const token = generateToken({ userId: user.id, email: user.email })
+    const token = generateToken({ userId: user.id, email: user.email, role: user.role })
 
     return NextResponse.json({
       token,
       user: {
         id: user.id,
         email: user.email,
+        role: user.role,
       },
     })
   } catch (error) {

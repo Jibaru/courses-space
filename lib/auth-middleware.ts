@@ -8,7 +8,7 @@ export function requireAuth(request: NextRequest): JWTPayload {
     throw new Error("Unauthorized: No token provided")
   }
 
-  const token = authHeader.substring(7) // Remove "Bearer " prefix
+  const token = authHeader.substring(7)
 
   try {
     const payload = verifyToken(token)
@@ -16,4 +16,14 @@ export function requireAuth(request: NextRequest): JWTPayload {
   } catch (error) {
     throw new Error("Unauthorized: Invalid token")
   }
+}
+
+export function requireAdmin(request: NextRequest): JWTPayload {
+  const payload = requireAuth(request)
+
+  if (payload.role !== "admin") {
+    throw new Error("Forbidden: Admin access required")
+  }
+
+  return payload
 }

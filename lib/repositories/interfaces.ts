@@ -31,12 +31,12 @@ export interface IUserRepository {
   /**
    * Create a new user
    */
-  create(email: string, password: string): Promise<User>
+  create(email: string, password: string, role?: "student" | "admin"): Promise<User>
 
   /**
    * Update a user
    */
-  update(id: string, email: string, password: string): Promise<User | null>
+  update(id: string, email: string, password: string, role?: "student" | "admin"): Promise<User | null>
 
   /**
    * Delete a user

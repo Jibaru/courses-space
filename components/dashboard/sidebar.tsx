@@ -8,6 +8,7 @@ interface SidebarProps {
   onNavigate: (section: "dashboard" | "users" | "courses") => void
   onLogout: () => void
   userEmail: string
+  userRole: "student" | "admin"
   isCollapsed: boolean
   onToggleCollapse: () => void
 }
@@ -17,6 +18,7 @@ export function Sidebar({
   onNavigate,
   onLogout,
   userEmail,
+  userRole,
   isCollapsed,
   onToggleCollapse,
 }: SidebarProps) {
@@ -56,15 +58,17 @@ export function Sidebar({
             {!isCollapsed && <span className="ml-2">Dashboard</span>}
           </Button>
 
-          <Button
-            variant={currentSection === "users" ? "default" : "ghost"}
-            className={`${isCollapsed ? "w-full justify-center p-2" : "w-full justify-start"} ${currentSection === "users" ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}
-            onClick={() => onNavigate("users")}
-            title="Users"
-          >
-            <Users className="w-4 h-4" />
-            {!isCollapsed && <span className="ml-2">Users</span>}
-          </Button>
+          {userRole === "admin" && (
+            <Button
+              variant={currentSection === "users" ? "default" : "ghost"}
+              className={`${isCollapsed ? "w-full justify-center p-2" : "w-full justify-start"} ${currentSection === "users" ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}
+              onClick={() => onNavigate("users")}
+              title="Users"
+            >
+              <Users className="w-4 h-4" />
+              {!isCollapsed && <span className="ml-2">Users</span>}
+            </Button>
+          )}
 
           <Button
             variant={currentSection === "courses" ? "default" : "ghost"}

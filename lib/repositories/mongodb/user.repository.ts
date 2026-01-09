@@ -21,6 +21,7 @@ export class MongoUserRepository implements IUserRepository {
       id: doc._id.toString(),
       email: doc.email,
       password: doc.password,
+      role: doc.role,
       createdAt: doc.createdAt,
     }
   }
@@ -60,14 +61,14 @@ export class MongoUserRepository implements IUserRepository {
     return docs.map((doc) => this.toUser(doc))
   }
 
-  async create(email: string, password: string): Promise<User> {
-    // Hash the password before storing
+  async create(email: string, password: string, role: "student" | "admin" = "student"): Promise<User> {
     const saltRounds = 10
     const hashedPassword = await bcrypt.hash(password, saltRounds)
 
     const doc: Omit<MongoUser, "_id"> = {
       email,
       password: hashedPassword,
+      role,
       createdAt: new Date(),
     }
     const result = await this.collection.insertOne(doc)
@@ -75,24 +76,28 @@ export class MongoUserRepository implements IUserRepository {
       id: result.insertedId.toString(),
       email,
       password: hashedPassword,
+      role,
       createdAt: doc.createdAt,
     }
   }
 
-  async update(id: string, email: string, password: string): Promise<User | null> {
+  async update(
+    id: string,
+    email: string,
+    password: string,
+    role: "student" | "admin" = "student",
+  ): Promise<User | null> {
     try {
-      // Hash the password before updating
       const saltRounds = 10
       const hashedPassword = await bcrypt.hash(password, saltRounds)
 
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
-        { $set: { email, password: hashedPassword } },
+        { $set: { email, password: hashedPassword, role } },
         { returnDocument: "after" },
       )
       return result ? this.toUser(result as MongoUser) : null
     } catch (error) {
-      // Invalid ObjectId format
       return null
     }
   }

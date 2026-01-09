@@ -37,6 +37,7 @@ export default function Home() {
         onNavigate={setCurrentSection}
         onLogout={handleLogout}
         userEmail={user.email}
+        userRole={user.role}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
