@@ -23,6 +23,18 @@ export function CourseDetail({ course, onBack }: CourseDetailProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
 
+  // Helper function to detect if URL is from Mega
+  const isMegaUrl = (url: string): boolean => {
+    return url.includes("mega.nz")
+  }
+
+  // Convert Mega URL to embed URL
+  const getMegaEmbedUrl = (url: string): string => {
+    // Mega URLs format: https://mega.nz/file/FILE_ID#KEY
+    // Embed format: https://mega.nz/embed/FILE_ID#KEY
+    return url.replace("/file/", "/embed/")
+  }
+
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newComment.trim()) return
@@ -252,7 +264,17 @@ export function CourseDetail({ course, onBack }: CourseDetailProps) {
         <h1 className="text-4xl font-bold text-foreground">{course.videoTitle}</h1>
 
         <div className="rounded-lg overflow-hidden bg-black">
-          <video src={course.videoUrl} controls className="w-full aspect-video" poster={course.thumbnail} />
+          {isMegaUrl(course.videoUrl) ? (
+            <iframe
+              src={getMegaEmbedUrl(course.videoUrl)}
+              className="w-full aspect-video border-0"
+              allow="autoplay; fullscreen"
+              allowFullScreen
+              title={course.videoTitle}
+            />
+          ) : (
+            <video src={course.videoUrl} controls className="w-full aspect-video" poster={course.thumbnail} />
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
