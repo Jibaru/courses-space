@@ -17,7 +17,7 @@ export async function POST(
       return NextResponse.json({ error: "Reply content is required" }, { status: 400 })
     }
 
-    const repos = getRepositories()
+    const repos = await getRepositories()
 
     // Get user info
     const user = await repos.users.findById(payload.userId)

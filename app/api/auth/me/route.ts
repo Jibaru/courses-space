@@ -5,7 +5,7 @@ import { getRepositories } from "@/lib/repositories"
 export async function GET(request: NextRequest) {
   try {
     const payload = requireAuth(request)
-    const repos = getRepositories()
+    const repos = await getRepositories()
     const user = await repos.users.findById(payload.userId)
 
     if (!user) {

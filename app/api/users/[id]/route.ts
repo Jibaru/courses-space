@@ -7,7 +7,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     requireAuth(request)
     const { id } = await params
-    const repos = getRepositories()
+    const repos = await getRepositories()
     const user = await repos.users.findById(id)
 
     if (!user) {
@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
-    const repos = getRepositories()
+    const repos = await getRepositories()
     const updatedUser = await repos.users.update(id, email, password)
 
     if (!updatedUser) {
@@ -70,7 +70,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     requireAuth(request)
     const { id } = await params
-    const repos = getRepositories()
+    const repos = await getRepositories()
 
     await repos.users.delete(id)
 

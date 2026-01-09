@@ -6,7 +6,7 @@ import { getRepositories } from "@/lib/repositories"
 export async function GET(request: NextRequest) {
   try {
     requireAuth(request)
-    const repos = getRepositories()
+    const repos = await getRepositories()
     const courses = await repos.courses.findAll()
 
     return NextResponse.json(courses)

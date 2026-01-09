@@ -7,7 +7,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     requireAuth(request)
     const { id } = await params
-    const repos = getRepositories()
+    const repos = await getRepositories()
     const course = await repos.courses.findById(id)
 
     if (!course) {

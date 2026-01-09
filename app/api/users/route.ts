@@ -6,7 +6,7 @@ import { getRepositories } from "@/lib/repositories"
 export async function GET(request: NextRequest) {
   try {
     requireAuth(request)
-    const repos = getRepositories()
+    const repos = await getRepositories()
     const users = await repos.users.findAll()
 
     // Don't send passwords to client
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
-    const repos = getRepositories()
+    const repos = await getRepositories()
 
     // Check if user already exists
     const existingUser = await repos.users.findByEmail(email)

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
-    const repos = getRepositories()
+    const repos = await getRepositories()
 
     // Check if user already exists
     const existingUser = await repos.users.findByEmail(email)

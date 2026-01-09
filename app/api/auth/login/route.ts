@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const repos = getRepositories()
+    const repos = await getRepositories()
     const user = await repos.users.findByCredentials(email, password)
 
     if (!user) {

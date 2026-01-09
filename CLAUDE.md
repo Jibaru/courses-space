@@ -282,136 +282,63 @@ Comments use recursive structure with optimistic updates:
 - Server-side: Recursive traversal to find parent comment (see [lib/repositories/in-memory/comment.repository.ts](lib/repositories/in-memory/comment.repository.ts))
 - API handles creating proper IDs and timestamps
 
-### Switching from In-Memory to MongoDB (or other database)
+### Switching from In-Memory to MongoDB
 
-The repository pattern makes switching storage implementations easy. Here's how:
+**MongoDB is already implemented!** The repository pattern makes switching storage implementations extremely easy. Simply update your environment variables:
 
-**Step 1: Install MongoDB driver**
+**Step 1: Set up MongoDB**
+
+You can use MongoDB locally or a cloud service like MongoDB Atlas:
+- **Local MongoDB**: Install MongoDB Community Server from mongodb.com
+- **MongoDB Atlas**: Create a free cluster at mongodb.com/cloud/atlas
+
+**Step 2: Update environment variables**
+
+Edit `.env.local`:
 ```bash
-pnpm install mongodb
+JWT_SECRET=your-super-secret-jwt-key
+
+# Enable MongoDB
+USE_MONGODB=true
+
+# MongoDB Connection URI
+MONGODB_URI=mongodb://localhost:27017
+# OR for MongoDB Atlas:
+# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+
+# MongoDB Database Name
+MONGODB_DB_NAME=learning-platform
 ```
 
-**Step 2: Create MongoDB connection utility**
-Create `lib/mongodb.ts`:
-```typescript
-import { MongoClient } from "mongodb"
+**Step 3: (Optional) Seed initial data**
 
-const uri = process.env.MONGODB_URI || "mongodb://localhost:27017"
-const options = {}
+If you want to start with the default courses and admin user, you'll need to seed your MongoDB database. You can:
+- Create a seed script to insert initial data
+- Or start fresh and create content through the UI
 
-let client: MongoClient
-let clientPromise: Promise<MongoClient>
+**That's it!** Restart your dev server and all API routes will automatically use MongoDB instead of in-memory storage. Data will now persist across server restarts.
 
-if (process.env.NODE_ENV === "development") {
-  // In development mode, use a global variable to preserve value across module reloads
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options)
-    global._mongoClientPromise = client.connect()
-  }
-  clientPromise = global._mongoClientPromise
-} else {
-  // In production mode, it's best to not use a global variable
-  client = new MongoClient(uri, options)
-  clientPromise = client.connect()
-}
+### How the Automatic Switching Works
 
-export default clientPromise
-```
+The repository factory ([lib/repositories/index.ts](lib/repositories/index.ts)) automatically selects the implementation based on the `USE_MONGODB` environment variable:
 
-**Step 3: Create MongoDB repository implementations**
+- `USE_MONGODB=true` → Uses MongoDB repositories
+- `USE_MONGODB=false` or not set → Uses in-memory repositories
 
-Create files in `lib/repositories/mongodb/`:
-- `user.repository.ts` implementing `IUserRepository`
-- `course.repository.ts` implementing `ICourseRepository`
-- `comment.repository.ts` implementing `ICommentRepository`
+**No code changes needed in API routes!** They all use the repository interfaces, so they work with any implementation.
 
-Example MongoDB User Repository:
-```typescript
-import type { Collection } from "mongodb"
-import type { User } from "../../store"
-import type { IUserRepository } from "../interfaces"
+### MongoDB Repository Implementation
 
-export class MongoUserRepository implements IUserRepository {
-  constructor(private collection: Collection<User>) {}
+MongoDB repositories are already implemented in `lib/repositories/mongodb/`:
+- [user.repository.ts](lib/repositories/mongodb/user.repository.ts) - User CRUD with MongoDB
+- [course.repository.ts](lib/repositories/mongodb/course.repository.ts) - Course CRUD with MongoDB
+- [comment.repository.ts](lib/repositories/mongodb/comment.repository.ts) - Comments with embedded documents
 
-  async findByCredentials(email: string, password: string): Promise<User | null> {
-    return await this.collection.findOne({ email, password })
-  }
-
-  async findByEmail(email: string): Promise<User | null> {
-    return await this.collection.findOne({ email })
-  }
-
-  async findById(id: string): Promise<User | null> {
-    return await this.collection.findOne({ id })
-  }
-
-  async findAll(): Promise<User[]> {
-    return await this.collection.find({}).toArray()
-  }
-
-  async create(email: string, password: string): Promise<User> {
-    const newUser: User = {
-      id: new ObjectId().toString(),
-      email,
-      password,
-      createdAt: new Date(),
-    }
-    await this.collection.insertOne(newUser)
-    return newUser
-  }
-
-  async update(id: string, email: string, password: string): Promise<User | null> {
-    const result = await this.collection.findOneAndUpdate(
-      { id },
-      { $set: { email, password } },
-      { returnDocument: "after" }
-    )
-    return result.value
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const result = await this.collection.deleteOne({ id })
-    return result.deletedCount > 0
-  }
-}
-```
-
-**Step 4: Update the repository factory**
-
-Edit [lib/repositories/index.ts](lib/repositories/index.ts):
-```typescript
-import clientPromise from "@/lib/mongodb"
-import { MongoUserRepository } from "./mongodb/user.repository"
-import { MongoCourseRepository } from "./mongodb/course.repository"
-import { MongoCommentRepository } from "./mongodb/comment.repository"
-
-async function createRepositories(): Promise<IRepositoryContainer> {
-  // MongoDB implementation
-  const client = await clientPromise
-  const db = client.db("learning-platform")
-
-  const userRepo = new MongoUserRepository(db.collection("users"))
-  const courseRepo = new MongoCourseRepository(db.collection("courses"))
-  const commentRepo = new MongoCommentRepository(db, courseRepo)
-
-  return {
-    users: userRepo,
-    courses: courseRepo,
-    comments: commentRepo,
-  }
-}
-```
-
-**Step 5: Add MongoDB URI to environment variables**
-
-Update `.env.local`:
-```bash
-JWT_SECRET=your-secret-key
-MONGODB_URI=mongodb://localhost:27017/learning-platform
-```
-
-**That's it!** All your API routes will now use MongoDB without any changes to their code. The repository pattern abstracts the storage implementation completely.
+**Key Features**:
+- Uses MongoDB's native `_id` (ObjectId) as primary key
+- Automatically converts `_id` (ObjectId) ↔ `id` (string) for seamless integration
+- Handles invalid ObjectId formats gracefully
+- All repositories implement the same interfaces as in-memory versions
 
 ## Important Notes
 
@@ -429,7 +356,23 @@ MONGODB_URI=mongodb://localhost:27017/learning-platform
 Create a `.env.local` file in the root directory:
 
 ```bash
+# JWT Secret for authentication
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+
+# Storage Configuration
+# Set to 'true' to use MongoDB, 'false' or omit to use in-memory storage
+USE_MONGODB=false
+
+# MongoDB Configuration (only required if USE_MONGODB=true)
+MONGODB_URI=mongodb://localhost:27017
+# OR for MongoDB Atlas:
+# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+
+# MongoDB Database Name
+MONGODB_DB_NAME=learning-platform
 ```
 
-**Important**: Change the JWT_SECRET to a secure random string in production!
+**Important**:
+- Change the JWT_SECRET to a secure random string in production!
+- Set USE_MONGODB=true to enable MongoDB persistence
+- Provide MONGODB_URI when using MongoDB

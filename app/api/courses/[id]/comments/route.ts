@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Comment content is required" }, { status: 400 })
     }
 
-    const repos = getRepositories()
+    const repos = await getRepositories()
 
     // Get user info
     const user = await repos.users.findById(payload.userId)
