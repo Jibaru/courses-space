@@ -1,5 +1,6 @@
 import type { Collection, Document } from "mongodb"
 import { ObjectId } from "mongodb"
+import bcrypt from "bcrypt"
 import type { User } from "../../store"
 import type { IUserRepository } from "../interfaces"
 
@@ -25,8 +26,18 @@ export class MongoUserRepository implements IUserRepository {
   }
 
   async findByCredentials(email: string, password: string): Promise<User | null> {
-    const doc = (await this.collection.findOne({ email, password })) as MongoUser | null
-    return doc ? this.toUser(doc) : null
+    const doc = (await this.collection.findOne({ email })) as MongoUser | null
+    if (!doc) {
+      return null
+    }
+
+    // Compare the provided password with the hashed password
+    const isPasswordValid = await bcrypt.compare(password, doc.password)
+    if (!isPasswordValid) {
+      return null
+    }
+
+    return this.toUser(doc)
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -50,25 +61,33 @@ export class MongoUserRepository implements IUserRepository {
   }
 
   async create(email: string, password: string): Promise<User> {
+    // Hash the password before storing
+    const saltRounds = 10
+    const hashedPassword = await bcrypt.hash(password, saltRounds)
+
     const doc: Omit<MongoUser, "_id"> = {
       email,
-      password,
+      password: hashedPassword,
       createdAt: new Date(),
     }
     const result = await this.collection.insertOne(doc)
     return {
       id: result.insertedId.toString(),
       email,
-      password,
+      password: hashedPassword,
       createdAt: doc.createdAt,
     }
   }
 
   async update(id: string, email: string, password: string): Promise<User | null> {
     try {
+      // Hash the password before updating
+      const saltRounds = 10
+      const hashedPassword = await bcrypt.hash(password, saltRounds)
+
       const result = await this.collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
-        { $set: { email, password } },
+        { $set: { email, password: hashedPassword } },
         { returnDocument: "after" },
       )
       return result ? this.toUser(result as MongoUser) : null

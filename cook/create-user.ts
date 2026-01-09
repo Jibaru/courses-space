@@ -1,0 +1,30 @@
+import { getRepositories } from "../lib/repositories"
+
+async function main() {
+  try {
+    const email = "admin@classroom.dev"
+    const password = "password123"
+
+    console.log(`Creating user: ${email}`)
+
+    const repos = await getRepositories()
+
+    const existingUser = await repos.users.findByEmail(email)
+    if (existingUser) {
+      console.log(`User already exists`)
+      process.exit(0)
+    }
+
+    const user = await repos.users.create(email, password)
+    console.log(`User created: ${user.id}`)
+    console.log(`Email: ${email}`)
+    console.log(`Password: ${password}`)
+
+    process.exit(0)
+  } catch (error) {
+    console.error("Error:", error)
+    process.exit(1)
+  }
+}
+
+main()
