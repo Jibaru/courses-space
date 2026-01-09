@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 
 // GET /api/courses - List all courses
 export async function GET(request: NextRequest) {
   try {
     requireAuth(request)
-    const courses = dataStore.getCourses()
+    const repos = getRepositories()
+    const courses = await repos.courses.findAll()
 
     return NextResponse.json(courses)
   } catch (error: any) {

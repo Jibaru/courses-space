@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 
 // GET /api/users - List all users
 export async function GET(request: NextRequest) {
   try {
     requireAuth(request)
-    const users = dataStore.getAllUsers()
+    const repos = getRepositories()
+    const users = await repos.users.findAll()
 
     // Don't send passwords to client
     const sanitizedUsers = users.map((user) => ({
@@ -40,13 +41,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
+    const repos = getRepositories()
+
     // Check if user already exists
-    const existingUser = dataStore.getUserByEmail(email)
+    const existingUser = await repos.users.findByEmail(email)
     if (existingUser) {
       return NextResponse.json({ error: "Email already exists" }, { status: 409 })
     }
 
-    const newUser = dataStore.createUser(email, password)
+    const newUser = await repos.users.create(email, password)
 
     return NextResponse.json(
       {

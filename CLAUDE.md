@@ -37,25 +37,53 @@ pnpm lint
 
 ## Architecture
 
+### Repository Pattern
+
+The application uses the **Repository Pattern** to abstract data access. This allows easy switching between different storage implementations (in-memory, MongoDB, PostgreSQL, etc.) without changing API route code.
+
+**Repository Interfaces** ([lib/repositories/interfaces.ts](lib/repositories/interfaces.ts)):
+- `IUserRepository`: User CRUD operations
+- `ICourseRepository`: Course CRUD operations
+- `ICommentRepository`: Comment and reply operations
+
+**Repository Container** ([lib/repositories/index.ts](lib/repositories/index.ts)):
+- Singleton container managing repository instances
+- `getRepositories()` function provides access to all repositories
+- Easy to swap implementations by modifying the `createRepositories()` function
+
+**Current Implementation: In-Memory** ([lib/repositories/in-memory/](lib/repositories/in-memory/)):
+- `InMemoryUserRepository`: Stores users in memory
+- `InMemoryCourseRepository`: Stores courses in memory
+- `InMemoryCommentRepository`: Stores comments within courses
+- All data resets on server restart
+
+**Future Implementations**:
+- MongoDB: Create `MongoUserRepository`, `MongoCourseRepository`, etc.
+- PostgreSQL: Create `PostgresUserRepository`, `PostgresCourseRepository`, etc.
+- Simply implement the same interfaces and update the factory function
+
 ### API-Based Data Layer
 
-The application uses Next.js API routes with server-side in-memory storage. Key components:
+The application uses Next.js API routes that interact with repositories. Key components:
 
 **Type Definitions** ([lib/store.ts](lib/store.ts)):
 - `User`: Authentication and user management
 - `Course`: Course data with video, content, and resources
 - `Comment`: Recursive structure supporting nested replies
 
-**Server-Side Data** ([lib/data-store.ts](lib/data-store.ts)):
-- In-memory data arrays and CRUD operations
-- Used exclusively by API routes
-- Data resets on server restart
-
 **API Routes** ([app/api/](app/api/)):
 - Authentication: `/api/auth/login`, `/api/auth/signup`, `/api/auth/me`
 - Users: `/api/users`, `/api/users/[id]`
 - Courses: `/api/courses`, `/api/courses/[id]`
-- Comments: `/api/courses/[courseId]/comments`, `/api/courses/[courseId]/comments/[commentId]/replies`
+- Comments: `/api/courses/[id]/comments`, `/api/courses/[id]/comments/[commentId]/replies`
+
+All API routes use `getRepositories()` to access data:
+```typescript
+import { getRepositories } from "@/lib/repositories"
+
+const repos = getRepositories()
+const user = await repos.users.findById(id)
+```
 
 **Authentication**:
 - JWT tokens stored in localStorage
@@ -88,8 +116,15 @@ components/
 └── ui/              - Shadcn/UI base components (~60+ primitives)
 
 lib/
+├── repositories/    - Repository pattern implementation
+│   ├── interfaces.ts           - Repository interfaces (IUserRepository, etc.)
+│   ├── index.ts               - Repository container and factory
+│   └── in-memory/            - In-memory implementations
+│       ├── user.repository.ts
+│       ├── course.repository.ts
+│       └── comment.repository.ts
 ├── store.ts         - Type definitions only (User, Course, Comment)
-├── data-store.ts    - Server-side in-memory data store
+├── data-store.ts    - Legacy in-memory data store (deprecated, kept for reference)
 ├── api.ts           - API client with fetch wrapper
 ├── auth-context.tsx - Authentication context provider
 ├── auth-middleware.ts - JWT verification middleware for API routes
@@ -214,19 +249,20 @@ await api.delete(`/api/users/${id}`, true)
 
 1. Create route file in [app/api/](app/api/) directory
 2. Import `requireAuth` from [lib/auth-middleware.ts](lib/auth-middleware.ts) for protected routes
-3. Import `dataStore` from [lib/data-store.ts](lib/data-store.ts) for data operations
+3. Import `getRepositories` from [lib/repositories](lib/repositories) for data operations
 4. Return `NextResponse.json()` with appropriate status codes
 
 Example:
 ```typescript
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 
 export async function GET(request: NextRequest) {
   try {
     const payload = requireAuth(request) // Verify JWT
-    const data = dataStore.getSomeData()
+    const repos = getRepositories()
+    const data = await repos.users.findAll() // Use repository methods
     return NextResponse.json(data)
   } catch (error: any) {
     if (error.message?.includes("Unauthorized")) {
@@ -243,14 +279,146 @@ Comments use recursive structure with optimistic updates:
 - Top-level comments are in `course.comments[]`
 - Each comment has a `replies[]` array containing nested Comment objects
 - Client-side: Optimistic update → API call → Replace with real data on success
-- Server-side: Recursive traversal to find parent comment (see [lib/data-store.ts](lib/data-store.ts))
+- Server-side: Recursive traversal to find parent comment (see [lib/repositories/in-memory/comment.repository.ts](lib/repositories/in-memory/comment.repository.ts))
 - API handles creating proper IDs and timestamps
+
+### Switching from In-Memory to MongoDB (or other database)
+
+The repository pattern makes switching storage implementations easy. Here's how:
+
+**Step 1: Install MongoDB driver**
+```bash
+pnpm install mongodb
+```
+
+**Step 2: Create MongoDB connection utility**
+Create `lib/mongodb.ts`:
+```typescript
+import { MongoClient } from "mongodb"
+
+const uri = process.env.MONGODB_URI || "mongodb://localhost:27017"
+const options = {}
+
+let client: MongoClient
+let clientPromise: Promise<MongoClient>
+
+if (process.env.NODE_ENV === "development") {
+  // In development mode, use a global variable to preserve value across module reloads
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(uri, options)
+    global._mongoClientPromise = client.connect()
+  }
+  clientPromise = global._mongoClientPromise
+} else {
+  // In production mode, it's best to not use a global variable
+  client = new MongoClient(uri, options)
+  clientPromise = client.connect()
+}
+
+export default clientPromise
+```
+
+**Step 3: Create MongoDB repository implementations**
+
+Create files in `lib/repositories/mongodb/`:
+- `user.repository.ts` implementing `IUserRepository`
+- `course.repository.ts` implementing `ICourseRepository`
+- `comment.repository.ts` implementing `ICommentRepository`
+
+Example MongoDB User Repository:
+```typescript
+import type { Collection } from "mongodb"
+import type { User } from "../../store"
+import type { IUserRepository } from "../interfaces"
+
+export class MongoUserRepository implements IUserRepository {
+  constructor(private collection: Collection<User>) {}
+
+  async findByCredentials(email: string, password: string): Promise<User | null> {
+    return await this.collection.findOne({ email, password })
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return await this.collection.findOne({ email })
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return await this.collection.findOne({ id })
+  }
+
+  async findAll(): Promise<User[]> {
+    return await this.collection.find({}).toArray()
+  }
+
+  async create(email: string, password: string): Promise<User> {
+    const newUser: User = {
+      id: new ObjectId().toString(),
+      email,
+      password,
+      createdAt: new Date(),
+    }
+    await this.collection.insertOne(newUser)
+    return newUser
+  }
+
+  async update(id: string, email: string, password: string): Promise<User | null> {
+    const result = await this.collection.findOneAndUpdate(
+      { id },
+      { $set: { email, password } },
+      { returnDocument: "after" }
+    )
+    return result.value
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const result = await this.collection.deleteOne({ id })
+    return result.deletedCount > 0
+  }
+}
+```
+
+**Step 4: Update the repository factory**
+
+Edit [lib/repositories/index.ts](lib/repositories/index.ts):
+```typescript
+import clientPromise from "@/lib/mongodb"
+import { MongoUserRepository } from "./mongodb/user.repository"
+import { MongoCourseRepository } from "./mongodb/course.repository"
+import { MongoCommentRepository } from "./mongodb/comment.repository"
+
+async function createRepositories(): Promise<IRepositoryContainer> {
+  // MongoDB implementation
+  const client = await clientPromise
+  const db = client.db("learning-platform")
+
+  const userRepo = new MongoUserRepository(db.collection("users"))
+  const courseRepo = new MongoCourseRepository(db.collection("courses"))
+  const commentRepo = new MongoCommentRepository(db, courseRepo)
+
+  return {
+    users: userRepo,
+    courses: courseRepo,
+    comments: commentRepo,
+  }
+}
+```
+
+**Step 5: Add MongoDB URI to environment variables**
+
+Update `.env.local`:
+```bash
+JWT_SECRET=your-secret-key
+MONGODB_URI=mongodb://localhost:27017/learning-platform
+```
+
+**That's it!** All your API routes will now use MongoDB without any changes to their code. The repository pattern abstracts the storage implementation completely.
 
 ## Important Notes
 
-- **In-Memory Storage**: Server-side data stored in memory, resets on server restart
+- **Repository Pattern**: Uses repository pattern for data access abstraction
+- **Current Storage**: In-memory storage (resets on server restart) - easy to switch to MongoDB or other databases
 - **JWT Secret**: Set `JWT_SECRET` in `.env.local` (defaults to insecure value if not set)
-- **No Database**: Data is not persisted to a database - use `dataStore` in [lib/data-store.ts](lib/data-store.ts)
+- **Database Ready**: Repository interfaces make it easy to add MongoDB, PostgreSQL, or any other database
 - **Image Optimization Disabled**: [next.config.mjs](next.config.mjs) disables Next.js image optimization
 - **TypeScript Errors Ignored in Build**: Build process ignores TS errors (configured in next.config.mjs)
 - **Default Credentials**: admin@pullrequest.com / admin123

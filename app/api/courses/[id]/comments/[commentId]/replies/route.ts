@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 
 // POST /api/courses/[id]/comments/[commentId]/replies - Add reply to comment
 export async function POST(
@@ -17,13 +17,15 @@ export async function POST(
       return NextResponse.json({ error: "Reply content is required" }, { status: 400 })
     }
 
+    const repos = getRepositories()
+
     // Get user info
-    const user = dataStore.getUserById(payload.userId)
+    const user = await repos.users.findById(payload.userId)
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    const reply = dataStore.addReply(courseId, commentId, user.id, user.email, content)
+    const reply = await repos.comments.addReply(courseId, commentId, user.id, user.email, content)
 
     if (!reply) {
       return NextResponse.json({ error: "Course or comment not found" }, { status: 404 })

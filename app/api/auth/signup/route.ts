@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 import { generateToken } from "@/lib/jwt"
 
 export async function POST(request: NextRequest) {
@@ -15,13 +15,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
+    const repos = getRepositories()
+
     // Check if user already exists
-    const existingUser = dataStore.getUserByEmail(email)
+    const existingUser = await repos.users.findByEmail(email)
     if (existingUser) {
       return NextResponse.json({ error: "Email already exists" }, { status: 409 })
     }
 
-    const newUser = dataStore.createUser(email, password)
+    const newUser = await repos.users.create(email, password)
     const token = generateToken({ userId: newUser.id, email: newUser.email })
 
     return NextResponse.json({

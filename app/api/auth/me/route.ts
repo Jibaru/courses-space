@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 
 export async function GET(request: NextRequest) {
   try {
     const payload = requireAuth(request)
-    const user = dataStore.getUserById(payload.userId)
+    const repos = getRepositories()
+    const user = await repos.users.findById(payload.userId)
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })

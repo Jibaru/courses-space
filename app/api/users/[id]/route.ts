@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-middleware"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 
 // GET /api/users/[id] - Get user by ID
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     requireAuth(request)
     const { id } = await params
-    const user = dataStore.getUserById(id)
+    const repos = getRepositories()
+    const user = await repos.users.findById(id)
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -43,7 +44,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
-    const updatedUser = dataStore.updateUser(id, email, password)
+    const repos = getRepositories()
+    const updatedUser = await repos.users.update(id, email, password)
 
     if (!updatedUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -68,8 +70,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     requireAuth(request)
     const { id } = await params
+    const repos = getRepositories()
 
-    dataStore.deleteUser(id)
+    await repos.users.delete(id)
 
     return NextResponse.json({ message: "User deleted successfully" })
   } catch (error: any) {

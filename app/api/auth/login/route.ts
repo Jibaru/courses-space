@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { dataStore } from "@/lib/data-store"
+import { getRepositories } from "@/lib/repositories"
 import { generateToken } from "@/lib/jwt"
 
 export async function POST(request: NextRequest) {
@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const user = dataStore.getUser(email, password)
+    const repos = getRepositories()
+    const user = await repos.users.findByCredentials(email, password)
 
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
