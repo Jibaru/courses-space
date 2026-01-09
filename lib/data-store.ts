@@ -1,40 +1,7 @@
-export type User = {
-  id: string
-  email: string
-  password: string
-  createdAt: Date
-}
+// Server-side in-memory data store for API routes
+import type { User, Course, Comment } from "./store"
 
-export type Comment = {
-  id: string
-  userId: string
-  userName: string
-  content: string
-  createdAt: Date
-  replies: Comment[]
-}
-
-export type Course = {
-  id: string
-  title: string
-  description: string
-  thumbnail: string
-  videoUrl: string
-  videoTitle: string
-  content: string
-  resources: {
-    name: string
-    type: "pdf" | "zip" | "code"
-    url: string
-  }[]
-  comments: Comment[]
-}
-
-// Data has been moved to lib/data-store.ts for server-side API routes
-// This file now only contains type definitions for client-side use
-
-// Deprecated - use API routes instead
-// Kept temporarily to avoid breaking existing imports
+// In-memory store (server-side only)
 let users: User[] = [
   {
     id: "1",
@@ -44,7 +11,7 @@ let users: User[] = [
   },
 ]
 
-const courses: Course[] = [
+let courses: Course[] = [
   {
     id: "1",
     title: "React Fundamentals",
@@ -57,12 +24,12 @@ const courses: Course[] = [
     resources: [
       {
         name: "slides.pdf",
-        type: "pdf",
+        type: "pdf" as const,
         url: "/pdf-document.png",
       },
       {
         name: "starter-code.zip",
-        type: "zip",
+        type: "zip" as const,
         url: "/zip-file.png",
       },
     ],
@@ -80,7 +47,7 @@ const courses: Course[] = [
     resources: [
       {
         name: "slides.pdf",
-        type: "pdf",
+        type: "pdf" as const,
         url: "/pdf-slides.jpg",
       },
     ],
@@ -98,12 +65,12 @@ const courses: Course[] = [
     resources: [
       {
         name: "slides.pdf",
-        type: "pdf",
+        type: "pdf" as const,
         url: "/pdf-document.png",
       },
       {
         name: "project-files.zip",
-        type: "zip",
+        type: "zip" as const,
         url: "/zip.jpg",
       },
     ],
@@ -111,9 +78,13 @@ const courses: Course[] = [
   },
 ]
 
-export const store = {
+export const dataStore = {
   getUser: (email: string, password: string) => {
     return users.find((u) => u.email === email && u.password === password)
+  },
+
+  getUserByEmail: (email: string) => {
+    return users.find((u) => u.email === email)
   },
 
   getUserById: (id: string) => {

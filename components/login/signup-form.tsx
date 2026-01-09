@@ -6,21 +6,21 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { store } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
 
 interface SignupFormProps {
-  onSignupSuccess: (userId: string, email: string) => void
   onToggleLogin: () => void
 }
 
-export function SignupForm({ onSignupSuccess, onToggleLogin }: SignupFormProps) {
+export function SignupForm({ onToggleLogin }: SignupFormProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const { signup } = useAuth()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
@@ -36,17 +36,14 @@ export function SignupForm({ onSignupSuccess, onToggleLogin }: SignupFormProps) 
 
     setIsLoading(true)
 
-    // Simulate API call delay
-    setTimeout(() => {
-      const existingUser = store.getUser(email, "")
-      if (existingUser) {
-        setError("Email already exists")
-      } else {
-        const newUser = store.createUser(email, password)
-        onSignupSuccess(newUser.id, newUser.email)
-      }
+    try {
+      await signup(email, password)
+      // Auth context will handle state update
+    } catch (err: any) {
+      setError(err.message || "Signup failed")
+    } finally {
       setIsLoading(false)
-    }, 300)
+    }
   }
 
   return (

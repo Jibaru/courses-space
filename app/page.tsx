@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useAuth } from "@/lib/auth-context"
 import { AuthPage } from "@/components/auth/auth-page"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { DashboardSection } from "@/components/dashboard/dashboard-section"
@@ -8,27 +9,25 @@ import { UsersSection } from "@/components/users/users-section"
 import { CoursesSection } from "@/components/courses/courses-section"
 
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userId, setUserId] = useState("")
-  const [userEmail, setUserEmail] = useState("")
+  const { user, isLoading, logout } = useAuth()
   const [currentSection, setCurrentSection] = useState<"dashboard" | "users" | "courses">("dashboard")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  const handleAuthSuccess = (id: string, email: string) => {
-    setUserId(id)
-    setUserEmail(email)
-    setIsAuthenticated(true)
-  }
-
   const handleLogout = () => {
-    setIsAuthenticated(false)
-    setUserId("")
-    setUserEmail("")
+    logout()
     setCurrentSection("dashboard")
   }
 
-  if (!isAuthenticated) {
-    return <AuthPage onAuthSuccess={handleAuthSuccess} />
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <AuthPage />
   }
 
   return (
@@ -37,7 +36,7 @@ export default function Home() {
         currentSection={currentSection}
         onNavigate={setCurrentSection}
         onLogout={handleLogout}
-        userEmail={userEmail}
+        userEmail={user.email}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />

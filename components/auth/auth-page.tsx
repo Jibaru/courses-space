@@ -4,11 +4,7 @@ import { useState } from "react"
 import { LoginForm } from "@/components/login/login-form"
 import { SignupForm } from "@/components/login/signup-form"
 
-interface AuthPageProps {
-  onAuthSuccess: (userId: string, email: string) => void
-}
-
-export function AuthPage({ onAuthSuccess }: AuthPageProps) {
+export function AuthPage() {
   const [isSignup, setIsSignup] = useState(false)
 
   return (
@@ -22,9 +18,9 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
       </div>
 
       {isSignup ? (
-        <SignupForm onSignupSuccess={onAuthSuccess} onToggleLogin={() => setIsSignup(false)} />
+        <SignupForm onToggleLogin={() => setIsSignup(false)} />
       ) : (
-        <LoginForm onLoginSuccess={onAuthSuccess} onToggleSignup={() => setIsSignup(true)} />
+        <LoginForm onToggleSignup={() => setIsSignup(true)} />
       )}
     </div>
   )

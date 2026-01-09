@@ -4,64 +4,96 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **client-side only learning platform** built with Next.js 16 and React 19. It features course management, user management, and a commenting system with nested replies. All data is stored in-memory with no backend or database - data resets on page refresh.
+This is a **full-stack learning platform** built with Next.js 16 and React 19. It features course management, user management, and a commenting system with nested replies. Data is managed through Next.js API routes with JWT authentication, using an in-memory store on the server (data resets on server restart).
 
 ## Development Commands
 
 ```bash
 # Start development server
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm build
 
 # Run production build locally
-npm run start
+pnpm start
 
 # Run linter
-npm run lint
+pnpm lint
 ```
+
+**Note**: This project uses `pnpm` as the package manager.
 
 ## Technology Stack
 
-- **Framework**: Next.js 16.0.10 with App Router (Client Components)
+- **Framework**: Next.js 16.0.10 with App Router (API Routes + Client Components)
 - **UI**: React 19.2.0 with TypeScript 5.9.3
 - **Styling**: Tailwind CSS 4.1.9 with CSS variables (oklch color space)
 - **Components**: Shadcn/UI with Radix UI primitives
 - **Forms**: React Hook Form with Zod validation
 - **Content**: React Markdown with syntax highlighting
+- **Authentication**: JWT tokens with jsonwebtoken library
+- **API Client**: Custom fetch wrapper with auto token injection
 
 ## Architecture
 
-### Core Data Layer (lib/store.ts)
+### API-Based Data Layer
 
-The entire application uses an in-memory store with no persistence. Key types:
+The application uses Next.js API routes with server-side in-memory storage. Key components:
 
+**Type Definitions** ([lib/store.ts](lib/store.ts)):
 - `User`: Authentication and user management
 - `Course`: Course data with video, content, and resources
 - `Comment`: Recursive structure supporting nested replies
 
-**Important**: The store exports a singleton object with methods like `getUser()`, `createUser()`, `getCourses()`, `addComment()`, `addReply()`. All data operations go through [lib/store.ts](lib/store.ts).
+**Server-Side Data** ([lib/data-store.ts](lib/data-store.ts)):
+- In-memory data arrays and CRUD operations
+- Used exclusively by API routes
+- Data resets on server restart
 
-**Default credentials**: admin@pullrequest.com / admin123
+**API Routes** ([app/api/](app/api/)):
+- Authentication: `/api/auth/login`, `/api/auth/signup`, `/api/auth/me`
+- Users: `/api/users`, `/api/users/[id]`
+- Courses: `/api/courses`, `/api/courses/[id]`
+- Comments: `/api/courses/[courseId]/comments`, `/api/courses/[courseId]/comments/[commentId]/replies`
+
+**Authentication**:
+- JWT tokens stored in localStorage
+- Token automatically sent via Authorization header
+- Managed by [lib/auth-context.tsx](lib/auth-context.tsx)
+- Default credentials: admin@pullrequest.com / admin123
+
+**API Client** ([lib/api.ts](lib/api.ts)):
+- Fetch wrapper with automatic JWT token injection
+- Error handling with custom APIError class
+- Convenience methods: `api.get()`, `api.post()`, `api.put()`, `api.delete()`
 
 ### Application Structure
 
 ```
 app/
-├── page.tsx          - Main entry: auth gate + dashboard layout
-├── layout.tsx        - Root layout with metadata and analytics
-└── globals.css       - CSS variables and Tailwind imports
+├── api/             - Next.js API routes
+│   ├── auth/       - Authentication endpoints (login, signup, me)
+│   ├── users/      - User CRUD endpoints
+│   └── courses/    - Courses and comments endpoints
+├── page.tsx         - Main entry: auth gate + dashboard layout
+├── layout.tsx       - Root layout with AuthProvider wrapper
+└── globals.css      - CSS variables and Tailwind imports
 
 components/
 ├── auth/            - Authentication forms (login/signup)
-├── courses/         - Course display, detail view, comments
+├── courses/         - Course display, detail view, comments with API integration
 ├── dashboard/       - Dashboard content and sidebar navigation
-├── users/           - User management CRUD operations
+├── users/           - User management with API integration
 └── ui/              - Shadcn/UI base components (~60+ primitives)
 
 lib/
-├── store.ts         - In-memory data store and business logic
+├── store.ts         - Type definitions only (User, Course, Comment)
+├── data-store.ts    - Server-side in-memory data store
+├── api.ts           - API client with fetch wrapper
+├── auth-context.tsx - Authentication context provider
+├── auth-middleware.ts - JWT verification middleware for API routes
+├── jwt.ts           - JWT token generation and verification
 └── utils.ts         - Utility functions (cn for classNames)
 
 hooks/
@@ -71,22 +103,39 @@ hooks/
 
 ### State Management Pattern
 
-- Local state managed with `useState` at component level
-- Props drilling for data passing between components
-- No global state management library (Redux, Zustand, etc.)
-- Authentication state lives in [app/page.tsx:11-13](app/page.tsx#L11-L13)
+- **Authentication**: Managed by React Context ([lib/auth-context.tsx](lib/auth-context.tsx))
+  - `useAuth()` hook provides `user`, `login()`, `signup()`, `logout()`
+  - JWT token stored in localStorage
+  - Auto-refresh on app load
+- **Data Fetching**: Components fetch data via API on mount using `useEffect`
+- **Local State**: Managed with `useState` at component level
+- **Optimistic Updates**: Comments use optimistic UI updates, reverting on API failure
 
 ### Key Architecture Decisions
 
-1. **Client-Side Only**: All rendering happens on the client. The "use client" directive is used throughout.
+1. **API-First Architecture**: All data operations go through Next.js API routes
+   - Client components use "use client" directive
+   - API routes handle business logic and data management
+   - JWT middleware protects authenticated endpoints
 
-2. **Recursive Comments**: The comment system supports unlimited nesting depth. Helper function `findAndReply()` in [lib/store.ts:171-189](lib/store.ts#L171-L189) recursively traverses comment trees.
+2. **Recursive Comments**: The comment system supports unlimited nesting depth
+   - API endpoints: POST to add comments/replies
+   - Optimistic updates in UI for better UX
+   - Server recursively finds correct parent for nested replies
 
-3. **Path Aliases**: TypeScript configured with `@/*` mapping to root directory. Always use `@/` imports (e.g., `@/components/ui/button`).
+3. **JWT Authentication**:
+   - Tokens generated on login/signup
+   - Stored in localStorage
+   - Sent via Authorization header (`Bearer <token>`)
+   - Verified by middleware in API routes
 
-4. **Responsive Design**: Uses custom `use-mobile` hook for breakpoint detection. Sidebar collapses on mobile.
+4. **Optimistic UI Updates**: Comments and replies update UI immediately, then sync with API
+   - Improves perceived performance
+   - Reverts on API failure
 
-5. **Type Safety**: Strict TypeScript mode enabled. All components and store methods are fully typed.
+5. **Path Aliases**: TypeScript configured with `@/*` mapping to root directory
+
+6. **Type Safety**: Strict TypeScript mode enabled throughout
 
 ## Component Patterns
 
@@ -134,24 +183,85 @@ Tailwind 4.x with PostCSS plugin (@tailwindcss/postcss). No separate `tailwind.c
 3. Update the store in [lib/store.ts](lib/store.ts) if new data operations are needed
 4. Use existing patterns for state management and props drilling
 
-### Working with the Store
+### Working with API Routes
 
-The store object in [lib/store.ts:110-194](lib/store.ts#L110-L194) is the single source of truth. Never mutate data directly - always use provided methods:
-- User operations: `getUser`, `createUser`, `updateUser`, `deleteUser`
-- Course operations: `getCourses`, `getCourseById`
-- Comment operations: `addComment`, `addReply`
+All data operations go through API endpoints. Use the `api` client from [lib/api.ts](lib/api.ts):
+
+```typescript
+import { api } from "@/lib/api"
+
+// GET request (authenticated)
+const users = await api.get<User[]>("/api/users", true)
+
+// POST request (authenticated)
+const newUser = await api.post("/api/users", { email, password }, true)
+
+// PUT request (authenticated)
+const updated = await api.put(`/api/users/${id}`, { email, password }, true)
+
+// DELETE request (authenticated)
+await api.delete(`/api/users/${id}`, true)
+```
+
+**API Endpoints**:
+- Authentication: `/api/auth/login`, `/api/auth/signup`, `/api/auth/me`
+- Users: `GET/POST /api/users`, `GET/PUT/DELETE /api/users/[id]`
+- Courses: `GET /api/courses`, `GET /api/courses/[id]`
+- Comments: `POST /api/courses/[courseId]/comments`
+- Replies: `POST /api/courses/[courseId]/comments/[commentId]/replies`
+
+### Creating New API Routes
+
+1. Create route file in [app/api/](app/api/) directory
+2. Import `requireAuth` from [lib/auth-middleware.ts](lib/auth-middleware.ts) for protected routes
+3. Import `dataStore` from [lib/data-store.ts](lib/data-store.ts) for data operations
+4. Return `NextResponse.json()` with appropriate status codes
+
+Example:
+```typescript
+import { NextRequest, NextResponse } from "next/server"
+import { requireAuth } from "@/lib/auth-middleware"
+import { dataStore } from "@/lib/data-store"
+
+export async function GET(request: NextRequest) {
+  try {
+    const payload = requireAuth(request) // Verify JWT
+    const data = dataStore.getSomeData()
+    return NextResponse.json(data)
+  } catch (error: any) {
+    if (error.message?.includes("Unauthorized")) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+```
 
 ### Modifying Comments System
 
-Comments use recursive structure. When working with replies:
+Comments use recursive structure with optimistic updates:
 - Top-level comments are in `course.comments[]`
 - Each comment has a `replies[]` array containing nested Comment objects
-- Use recursive traversal to find/update nested comments (see [lib/store.ts:171](lib/store.ts#L171))
+- Client-side: Optimistic update → API call → Replace with real data on success
+- Server-side: Recursive traversal to find parent comment (see [lib/data-store.ts](lib/data-store.ts))
+- API handles creating proper IDs and timestamps
 
 ## Important Notes
 
-- **No Persistence**: All data resets on refresh. This is by design for demo purposes.
-- **No API Routes**: Despite using Next.js, there are no `/app/api` routes. Everything is client-side.
-- **Image Optimization Disabled**: [next.config.mjs](next.config.mjs) disables Next.js image optimization.
-- **TypeScript Errors Ignored in Build**: Build process ignores TS errors (configured in next.config.mjs). Fix type errors when developing.
-- **No Backend**: Do not attempt to add API endpoints or database connections without major architectural changes.
+- **In-Memory Storage**: Server-side data stored in memory, resets on server restart
+- **JWT Secret**: Set `JWT_SECRET` in `.env.local` (defaults to insecure value if not set)
+- **No Database**: Data is not persisted to a database - use `dataStore` in [lib/data-store.ts](lib/data-store.ts)
+- **Image Optimization Disabled**: [next.config.mjs](next.config.mjs) disables Next.js image optimization
+- **TypeScript Errors Ignored in Build**: Build process ignores TS errors (configured in next.config.mjs)
+- **Default Credentials**: admin@pullrequest.com / admin123
+- **Package Manager**: This project uses `pnpm`, not `npm`
+
+## Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```bash
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+```
+
+**Important**: Change the JWT_SECRET to a secure random string in production!

@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { useState } from "react"
-import type { Course } from "@/lib/store"
+import type { Course, Comment } from "@/lib/store"
+import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, MessageCircle } from "lucide-react"
@@ -22,104 +23,157 @@ export function CourseDetail({ course, onBack }: CourseDetailProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newComment.trim()) return
 
-    const comment = {
-      id: Date.now().toString(),
-      userId: "1",
+    // Optimistic update
+    const optimisticComment: Comment = {
+      id: `temp-${Date.now()}`,
+      userId: "temp",
       userName: "You",
       content: newComment,
       createdAt: new Date(),
       replies: [],
     }
 
-    const updatedComments = [...comments, comment]
-    setComments(updatedComments)
+    const previousComments = comments
+    setComments([...comments, optimisticComment])
     setNewComment("")
+
+    try {
+      // Call API
+      const savedComment = await api.post<Comment>(
+        `/api/courses/${course.id}/comments`,
+        { content: newComment },
+        true,
+      )
+
+      // Replace optimistic comment with real one
+      setComments((current) => current.map((c) => (c.id === optimisticComment.id ? savedComment : c)))
+    } catch (err: any) {
+      // Revert on error
+      setComments(previousComments)
+      setNewComment(newComment)
+      alert(err.message || "Failed to add comment")
+    }
   }
 
-  const handleAddReply = (e: React.FormEvent, commentId: string) => {
+  const handleAddReply = async (e: React.FormEvent, commentId: string) => {
     e.preventDefault()
     if (!replyText.trim()) return
 
-    const updateComments = (comments: typeof course.comments): typeof course.comments => {
+    // Optimistic update
+    const optimisticReply: Comment = {
+      id: `temp-${Date.now()}`,
+      userId: "temp",
+      userName: "You",
+      content: replyText,
+      createdAt: new Date(),
+      replies: [],
+    }
+
+    const updateCommentsWithReply = (comments: Comment[]): Comment[] => {
       return comments.map((comment) => {
         if (comment.id === commentId) {
           return {
             ...comment,
-            replies: [
-              ...comment.replies,
-              {
-                id: Date.now().toString(),
-                userId: "1",
-                userName: "You",
-                content: replyText,
-                createdAt: new Date(),
-                replies: [],
-              },
-            ],
+            replies: [...comment.replies, optimisticReply],
           }
         }
         return {
           ...comment,
-          replies: updateComments(comment.replies),
+          replies: updateCommentsWithReply(comment.replies),
         }
       })
     }
 
-    setComments(updateComments(comments))
+    const previousComments = comments
+    setComments(updateCommentsWithReply(comments))
+    const replyContent = replyText
     setReplyText("")
     setReplyingTo(null)
+
+    try {
+      // Call API
+      const savedReply = await api.post<Comment>(
+        `/api/courses/${course.id}/comments/${commentId}/replies`,
+        { content: replyContent },
+        true,
+      )
+
+      // Replace optimistic reply with real one
+      const replaceOptimistic = (comments: Comment[]): Comment[] => {
+        return comments.map((comment) => {
+          if (comment.id === commentId) {
+            return {
+              ...comment,
+              replies: comment.replies.map((r) => (r.id === optimisticReply.id ? savedReply : r)),
+            }
+          }
+          return {
+            ...comment,
+            replies: replaceOptimistic(comment.replies),
+          }
+        })
+      }
+      setComments(replaceOptimistic)
+    } catch (err: any) {
+      // Revert on error
+      setComments(previousComments)
+      setReplyText(replyContent)
+      setReplyingTo(commentId)
+      alert(err.message || "Failed to add reply")
+    }
   }
 
   const MarkdownRenderer = ({ content }: { content: string }) => (
-    <ReactMarkdown
-      className="prose prose-invert max-w-none text-sm"
-      components={{
-        code({ node, inline, className, children, ...props }: any) {
-          const match = /language-(\w+)/.exec(className || "")
-          return !inline && match ? (
-            <SyntaxHighlighter style={atomDark} language={match[1]} PreTag="div" className="rounded-lg my-2" {...props}>
-              {String(children).replace(/\n$/, "")}
-            </SyntaxHighlighter>
-          ) : (
-            <code className="bg-secondary px-2 py-1 rounded text-xs font-mono text-primary" {...props}>
-              {children}
-            </code>
-          )
-        },
-        p({ children }) {
-          return <p className="my-2">{children}</p>
-        },
-        pre({ children }) {
-          return <pre className="my-2">{children}</pre>
-        },
-        ul({ children }) {
-          return <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>
-        },
-        ol({ children }) {
-          return <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>
-        },
-        blockquote({ children }) {
-          return (
-            <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground my-2">
-              {children}
-            </blockquote>
-          )
-        },
-        a({ href, children }) {
-          return (
-            <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-              {children}
-            </a>
-          )
-        },
-      }}
-    >
-      {content}
-    </ReactMarkdown>
+    <div className="prose prose-invert max-w-none text-sm">
+      <ReactMarkdown
+        components={{
+          code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || "")
+            return !inline && match ? (
+              <SyntaxHighlighter style={atomDark} language={match[1]} PreTag="div" className="rounded-lg my-2" {...props}>
+                {String(children).replace(/\n$/, "")}
+              </SyntaxHighlighter>
+            ) : (
+              <code className="bg-secondary px-2 py-1 rounded text-xs font-mono text-primary" {...props}>
+                {children}
+              </code>
+            )
+          },
+          p({ children }) {
+            return <p className="my-2">{children}</p>
+          },
+          pre({ children }) {
+            return <pre className="my-2">{children}</pre>
+          },
+          ul({ children }) {
+            return <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>
+          },
+          ol({ children }) {
+            return <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>
+          },
+          blockquote({ children }) {
+            return (
+              <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground my-2">
+                {children}
+              </blockquote>
+            )
+          },
+          a({ href, children }) {
+            return (
+              <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                {children}
+              </a>
+            )
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   )
 
   const renderComments = (comments: typeof course.comments, depth = 0) => {

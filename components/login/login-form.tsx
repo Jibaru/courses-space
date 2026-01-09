@@ -6,34 +6,32 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { store } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
 
 interface LoginFormProps {
-  onLoginSuccess: (userId: string, email: string) => void
   onToggleSignup: () => void
 }
 
-export function LoginForm({ onLoginSuccess, onToggleSignup }: LoginFormProps) {
+export function LoginForm({ onToggleSignup }: LoginFormProps) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const { login } = useAuth()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setIsLoading(true)
 
-    // Simulate API call delay
-    setTimeout(() => {
-      const user = store.getUser(email, password)
-      if (user) {
-        onLoginSuccess(user.id, user.email)
-      } else {
-        setError("Invalid email or password")
-      }
+    try {
+      await login(email, password)
+      // Auth context will handle state update
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password")
+    } finally {
       setIsLoading(false)
-    }, 300)
+    }
   }
 
   return (
