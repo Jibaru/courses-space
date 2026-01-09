@@ -51,16 +51,8 @@ The application uses the **Repository Pattern** to abstract data access. This al
 - `getRepositories()` function provides access to all repositories
 - Easy to swap implementations by modifying the `createRepositories()` function
 
-**Current Implementation: In-Memory** ([lib/repositories/in-memory/](lib/repositories/in-memory/)):
-- `InMemoryUserRepository`: Stores users in memory
-- `InMemoryCourseRepository`: Stores courses in memory
-- `InMemoryCommentRepository`: Stores comments within courses
-- All data resets on server restart
-
-**Future Implementations**:
-- MongoDB: Create `MongoUserRepository`, `MongoCourseRepository`, etc.
-- PostgreSQL: Create `PostgresUserRepository`, `PostgresCourseRepository`, etc.
-- Simply implement the same interfaces and update the factory function
+**Current Implementation**:
+- MongoDB Repositories.
 
 ### API-Based Data Layer
 
@@ -298,9 +290,6 @@ Edit `.env.local`:
 ```bash
 JWT_SECRET=your-super-secret-jwt-key
 
-# Enable MongoDB
-USE_MONGODB=true
-
 # MongoDB Connection URI
 MONGODB_URI=mongodb://localhost:27017
 # OR for MongoDB Atlas:
@@ -317,13 +306,6 @@ If you want to start with the default courses and admin user, you'll need to see
 - Or start fresh and create content through the UI
 
 **That's it!** Restart your dev server and all API routes will automatically use MongoDB instead of in-memory storage. Data will now persist across server restarts.
-
-### How the Automatic Switching Works
-
-The repository factory ([lib/repositories/index.ts](lib/repositories/index.ts)) automatically selects the implementation based on the `USE_MONGODB` environment variable:
-
-- `USE_MONGODB=true` → Uses MongoDB repositories
-- `USE_MONGODB=false` or not set → Uses in-memory repositories
 
 **No code changes needed in API routes!** They all use the repository interfaces, so they work with any implementation.
 
@@ -351,28 +333,6 @@ MongoDB repositories are already implemented in `lib/repositories/mongodb/`:
 - **Default Credentials**: admin@pullrequest.com / admin123
 - **Package Manager**: This project uses `pnpm`, not `npm`
 
-## Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-```bash
-# JWT Secret for authentication
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-
-# Storage Configuration
-# Set to 'true' to use MongoDB, 'false' or omit to use in-memory storage
-USE_MONGODB=false
-
-# MongoDB Configuration (only required if USE_MONGODB=true)
-MONGODB_URI=mongodb://localhost:27017
-# OR for MongoDB Atlas:
-# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
-
-# MongoDB Database Name
-MONGODB_DB_NAME=learning-platform
-```
-
 **Important**:
 - Change the JWT_SECRET to a secure random string in production!
-- Set USE_MONGODB=true to enable MongoDB persistence
 - Provide MONGODB_URI when using MongoDB

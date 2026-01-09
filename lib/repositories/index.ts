@@ -1,7 +1,4 @@
 import type { IUserRepository, ICourseRepository, ICommentRepository } from "./interfaces"
-import { InMemoryUserRepository } from "./in-memory/user.repository"
-import { InMemoryCourseRepository } from "./in-memory/course.repository"
-import { InMemoryCommentRepository } from "./in-memory/comment.repository"
 import { MongoUserRepository } from "./mongodb/user.repository"
 import { MongoCourseRepository } from "./mongodb/course.repository"
 import { MongoCommentRepository } from "./mongodb/comment.repository"
@@ -13,9 +10,7 @@ import clientPromise from "../mongodb"
  * This container manages repository instances and their dependencies.
  * It uses the singleton pattern to ensure all API routes use the same instances.
  *
- * To switch between storage implementations:
- * 1. Set USE_MONGODB environment variable to 'true' or 'false'
- * 2. No changes needed in API routes - they use the interfaces!
+ * All data is stored in MongoDB.
  */
 
 export interface IRepositoryContainer {
@@ -25,39 +20,21 @@ export interface IRepositoryContainer {
 }
 
 /**
- * Factory function to create repository instances
- *
- * Automatically selects implementation based on USE_MONGODB environment variable
- * (in-memory, MongoDB, PostgreSQL, etc.)
+ * Factory function to create MongoDB repository instances
  */
 async function createRepositories(): Promise<IRepositoryContainer> {
-  const useMongoDB = process.env.USE_MONGODB === "true"
+  // MongoDB implementation
+  const client = await clientPromise
+  const db = client.db(process.env.MONGODB_DB_NAME || "learning-platform")
 
-  if (useMongoDB) {
-    // MongoDB implementation
-    const client = await clientPromise
-    const db = client.db(process.env.MONGODB_DB_NAME || "learning-platform")
+  const userRepo = new MongoUserRepository(db.collection("users"))
+  const courseRepo = new MongoCourseRepository(db.collection("courses"))
+  const commentRepo = new MongoCommentRepository(courseRepo)
 
-    const userRepo = new MongoUserRepository(db.collection("users"))
-    const courseRepo = new MongoCourseRepository(db.collection("courses"))
-    const commentRepo = new MongoCommentRepository(courseRepo)
-
-    return {
-      users: userRepo,
-      courses: courseRepo,
-      comments: commentRepo,
-    }
-  } else {
-    // In-Memory implementation (default)
-    const userRepo = new InMemoryUserRepository()
-    const courseRepo = new InMemoryCourseRepository()
-    const commentRepo = new InMemoryCommentRepository(courseRepo)
-
-    return {
-      users: userRepo,
-      courses: courseRepo,
-      comments: commentRepo,
-    }
+  return {
+    users: userRepo,
+    courses: courseRepo,
+    comments: commentRepo,
   }
 }
 
