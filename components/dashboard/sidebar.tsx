@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Users, BookOpen, LogOut, Menu, X } from "lucide-react"
+import { Users, BookOpen, LogOut, Menu, X, LayoutDashboardIcon } from "lucide-react"
 
 interface SidebarProps {
   currentSection: "dashboard" | "users" | "courses"
@@ -54,7 +54,7 @@ export function Sidebar({
             onClick={() => onNavigate("dashboard")}
             title="Dashboard"
           >
-            <div className="w-4 h-4">📊</div>
+            <LayoutDashboardIcon className="w-4 h-4" />
             {!isCollapsed && <span className="ml-2">Dashboard</span>}
           </Button>
 
