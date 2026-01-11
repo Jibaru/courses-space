@@ -50,7 +50,7 @@ export function SignupForm({ onToggleLogin }: SignupFormProps) {
     <Card className="w-full max-w-md border-border/50">
       <CardHeader className="space-y-2">
         <CardTitle className="text-2xl">Create Account</CardTitle>
-        <CardDescription>Join PULL REQUEST and start learning</CardDescription>
+        <CardDescription>Join out community and start learning</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

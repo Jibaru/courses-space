@@ -37,8 +37,8 @@ export function LoginForm({ onToggleSignup }: LoginFormProps) {
   return (
     <Card className="w-full max-w-md border-border/50">
       <CardHeader className="space-y-2">
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
-        <CardDescription>Sign in to your PULL REQUEST account</CardDescription>
+        <CardTitle className="text-2xl">Courses Space</CardTitle>
+        <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

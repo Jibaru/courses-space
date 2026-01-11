@@ -9,8 +9,8 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "PULL REQUEST - Learning Platform",
-  description: "Master web development with PULL REQUEST",
+  title: "Courses Space - Learning Platform",
+  description: "Improve your skills",
   generator: "v0.app",
 }
 
